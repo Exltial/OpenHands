@@ -2,6 +2,12 @@ import { useMutation } from "@tanstack/react-query";
 import V1ConversationService from "#/api/conversation-service/v1-conversation-service.api";
 import { FileUploadSuccessResponse } from "#/api/open-hands.types";
 
+// Extended file interface to include path information
+interface FileWithPath extends File {
+  webkitRelativePath: string;
+  relativePath?: string;
+}
+
 interface V1UploadFilesVariables {
   conversationUrl: string | null | undefined;
   sessionApiKey: string | null | undefined;
@@ -25,8 +31,11 @@ export const useV1UploadFiles = () =>
       // Upload all files in parallel
       const uploadPromises = files.map(async (file) => {
         try {
-          // Upload to /workspace/{filename}
-          const filePath = `/workspace/${file.name}`;
+          const fileWithPath = file as FileWithPath;
+          // Use relative path if available, otherwise use filename
+          const relativePath = fileWithPath.relativePath || fileWithPath.webkitRelativePath || file.name;
+          const filePath = `/workspace/${relativePath}`;
+          
           await V1ConversationService.uploadFile(
             conversationUrl,
             sessionApiKey,
@@ -35,10 +44,12 @@ export const useV1UploadFiles = () =>
           );
           return { success: true as const, fileName: file.name, filePath };
         } catch (error) {
+          const fileWithPath = file as FileWithPath;
+          const relativePath = fileWithPath.relativePath || fileWithPath.webkitRelativePath || file.name;
           return {
             success: false as const,
             fileName: file.name,
-            filePath: `/workspace/${file.name}`,
+            filePath: `/workspace/${relativePath}`,
             error: error instanceof Error ? error.message : "Unknown error",
           };
         }

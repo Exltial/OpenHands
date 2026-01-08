@@ -939,6 +939,45 @@ if __name__ == '__main__':
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+    @app.post('/api/file/upload/{file_path:path}')
+    async def upload_file_with_path(
+        file_path: str,
+        file: UploadFile,
+    ):
+        """Upload a file to a specific path, creating directories as needed."""
+        assert client is not None
+
+        try:
+            # Ensure the file path is absolute
+            if not os.path.isabs(file_path):
+                raise HTTPException(
+                    status_code=400, detail='File path must be absolute'
+                )
+
+            # Create directory structure if it doesn't exist
+            dir_path = os.path.dirname(file_path)
+            if dir_path and not os.path.exists(dir_path):
+                os.makedirs(dir_path, exist_ok=True)
+
+            # Write the file
+            with open(file_path, 'wb') as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            
+            logger.debug(f'Uploaded file {file.filename} to {file_path}')
+
+            return JSONResponse(
+                content={
+                    'filename': file.filename,
+                    'path': file_path,
+                    'message': 'File uploaded successfully',
+                },
+                status_code=200,
+            )
+
+        except Exception as e:
+            logger.error(f'Error uploading file to {file_path}: {e}')
+            raise HTTPException(status_code=500, detail=str(e))
+
     @app.get('/download_files')
     def download_file(path: str):
         logger.debug('Downloading files')
