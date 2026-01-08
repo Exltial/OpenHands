@@ -17,6 +17,7 @@ interface CreateConversationVariables {
   suggestedTask?: SuggestedTask;
   conversationInstructions?: string;
   createMicroagent?: CreateMicroagent;
+  localFiles?: File[];
 }
 
 // Response type that combines both V1 and legacy responses
@@ -27,6 +28,8 @@ interface CreateConversationResponse extends Partial<Conversation> {
   // V1 specific fields
   v1_task_id?: string;
   is_v1?: boolean;
+  // Local files to upload after conversation is ready
+  pending_local_files?: File[];
 }
 
 export const useCreateConversation = () => {
@@ -43,6 +46,7 @@ export const useCreateConversation = () => {
         suggestedTask,
         conversationInstructions,
         createMicroagent,
+        localFiles,
       } = variables;
 
       const useV1 = USE_V1_CONVERSATION_API() && !createMicroagent;
@@ -56,6 +60,7 @@ export const useCreateConversation = () => {
           repository?.branch,
           conversationInstructions,
           undefined, // trigger - will be set by backend
+          localFiles,
         );
 
         // Return a special task ID that the frontend will recognize
@@ -67,6 +72,7 @@ export const useCreateConversation = () => {
           url: startTask.agent_server_url,
           v1_task_id: startTask.id,
           is_v1: true,
+          pending_local_files: localFiles,
         };
       }
 

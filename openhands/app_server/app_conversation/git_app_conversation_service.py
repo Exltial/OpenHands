@@ -39,7 +39,12 @@ class GitAppConversationService(AppConversationService, ABC):
     ) -> AsyncGenerator[AppConversationStartTask, None]:
         task.status = AppConversationStartTaskStatus.PREPARING_REPOSITORY
         yield task
-        await self.clone_or_init_git_repo(task, workspace)
+
+        # Handle local code upload or git repository
+        if task.request.use_local_code:
+            await self.setup_local_code(task, workspace)
+        else:
+            await self.clone_or_init_git_repo(task, workspace)
 
         task.status = AppConversationStartTaskStatus.RUNNING_SETUP_SCRIPT
         yield task
@@ -153,3 +158,38 @@ class GitAppConversationService(AppConversationService, ABC):
             return
 
         _logger.info('Git pre-commit hook installed successfully')
+
+    async def setup_local_code(
+        self,
+        task: AppConversationStartTask,
+        workspace: AsyncRemoteWorkspace,
+    ):
+        """Set up local code files in the workspace."""
+        request = task.request
+
+        if not request.use_local_code or not request.local_files_metadata:
+            _logger.info('No local code files to set up.')
+            return
+
+        _logger.debug(
+            f'Setting up {len(request.local_files_metadata)} local code files.'
+        )
+
+        # Initialize git repository for local code
+        if self.init_git_in_empty_workspace:
+            _logger.debug('Initializing a new git repository for local code.')
+            cmd = (
+                'git init && git config --global '
+                f'--add safe.directory {workspace.working_dir}'
+            )
+            result = await workspace.execute_command(cmd, workspace.working_dir)
+            if result.exit_code:
+                _logger.warning(f'Git init failed: {result.stderr}')
+
+        # Note: The actual file upload will be handled by the frontend
+        # using the file upload API after the conversation is created.
+        # This method just prepares the workspace for receiving the files.
+
+        _logger.info(
+            f'Workspace prepared for {len(request.local_files_metadata)} local files.'
+        )

@@ -99,6 +99,10 @@ class AppConversationStartRequest(BaseModel):
     trigger: ConversationTrigger | None = None
     pr_number: list[int] = Field(default_factory=list)
 
+    # Local code upload parameters
+    use_local_code: bool = Field(default=False)
+    local_files_metadata: list[dict] = Field(default_factory=list)
+
 
 class AppConversationStartTaskStatus(Enum):
     WORKING = 'WORKING'

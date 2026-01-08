@@ -29,6 +29,12 @@ export interface V1AppConversationStartRequest {
   title?: string | null;
   trigger?: ConversationTrigger | null;
   pr_number?: number[];
+  use_local_code?: boolean;
+  local_files_metadata?: Array<{
+    name: string;
+    size: number;
+    type: string;
+  }>;
 }
 
 export type V1AppConversationStartTaskStatus =

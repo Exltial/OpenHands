@@ -3,6 +3,8 @@ import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import V1ConversationService from "#/api/conversation-service/v1-conversation-service.api";
 import { useConversationId } from "#/hooks/use-conversation-id";
+import { useLocalFilesStore } from "#/stores/local-files-store";
+import { useUploadLocalFilesToConversation } from "#/hooks/mutation/use-upload-local-files-to-conversation";
 
 /**
  * Hook that polls V1 conversation start tasks and navigates when ready.
@@ -22,6 +24,8 @@ import { useConversationId } from "#/hooks/use-conversation-id";
 export const useTaskPolling = () => {
   const { conversationId } = useConversationId();
   const navigate = useNavigate();
+  const { getPendingFiles, clearPendingFiles } = useLocalFilesStore();
+  const { mutateAsync: uploadFiles } = useUploadLocalFilesToConversation();
 
   // Check if this is a task ID (format: "task-{uuid}")
   const isTask = conversationId.startsWith("task-");
@@ -50,14 +54,36 @@ export const useTaskPolling = () => {
     retry: false,
   });
 
-  // Navigate to conversation ID when task is ready
+  // Navigate to conversation ID when task is ready and handle file uploads
   useEffect(() => {
     const task = taskQuery.data;
-    if (task?.status === "READY" && task.app_conversation_id) {
-      // Replace the URL with the actual conversation ID
-      navigate(`/conversations/${task.app_conversation_id}`, { replace: true });
+    if (task?.status === "READY" && task.app_conversation_id && taskId) {
+      // Check if there are pending files to upload
+      const pendingFiles = getPendingFiles(taskId);
+      
+      if (pendingFiles && pendingFiles.length > 0) {
+        // Upload files before navigating
+        uploadFiles({
+          conversationUrl: task.agent_server_url,
+          sessionApiKey: task.sandbox_id, // Use sandbox_id as session key for V1
+          files: pendingFiles,
+        }).then(() => {
+          // Clear pending files after successful upload
+          clearPendingFiles(taskId);
+          // Navigate to conversation
+          navigate(`/conversations/${task.app_conversation_id}`, { replace: true });
+        }).catch((error) => {
+          // eslint-disable-next-line no-console
+          console.error("Failed to upload local files:", error);
+          // Navigate anyway, user can upload files manually
+          navigate(`/conversations/${task.app_conversation_id}`, { replace: true });
+        });
+      } else {
+        // No files to upload, navigate immediately
+        navigate(`/conversations/${task.app_conversation_id}`, { replace: true });
+      }
     }
-  }, [taskQuery.data, navigate]);
+  }, [taskQuery.data, navigate, taskId, getPendingFiles, clearPendingFiles, uploadFiles]);
 
   return {
     isTask,

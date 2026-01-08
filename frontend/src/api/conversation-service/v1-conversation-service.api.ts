@@ -61,6 +61,7 @@ class V1ConversationService {
     selected_branch?: string,
     conversationInstructions?: string,
     trigger?: ConversationTrigger,
+    localFiles?: File[],
   ): Promise<V1AppConversationStartTask> {
     const body: V1AppConversationStartRequest = {
       selected_repository: selectedRepository,
@@ -68,6 +69,12 @@ class V1ConversationService {
       selected_branch,
       title: conversationInstructions,
       trigger,
+      use_local_code: !!localFiles && localFiles.length > 0,
+      local_files_metadata: localFiles?.map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      })) || [],
     };
 
     // Add initial message if provided
